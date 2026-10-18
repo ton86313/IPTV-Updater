@@ -1,40 +1,28 @@
 import re
-import requests
+import cloudscraper
 
 WEB_PAGE_URL = "https://bunkr.ws/f/WrWkgiCtY4dTc"
 M3U_FILENAME = "IPTV-Marco.m3u"
 
 
 def fetch_latest_video_url():
-  headers = {
-      "User-Agent": (
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-          " (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-      ),
-      "Referer": "https://bunkr.ws/",
-  }
   try:
-    print(f"กำลังดึงข้อมูลจาก: {WEB_PAGE_URL}")
-    response = requests.get(WEB_PAGE_URL, headers=headers, timeout=15)
+    print(f"กำลังเชื่อมต่อผ่าน Cloudscraper ไปยัง: {WEB_PAGE_URL}")
+    scraper = cloudscraper.create_scraper()
+    response = scraper.get(WEB_PAGE_URL, timeout=15)
     print(f"สถานะการเชื่อมต่อ: {response.status_code}")
 
-    # ค้นหาลิงก์ .mp4 ที่มีพารามิเตอร์ token หรือ query string ต่อท้ายทั่วทั้งหน้าเว็บ
-    pattern_with_token = r'https?://[^\s"\'<>]+?\.mp4\?[^\s"\'<>]+'
-    matches = re.findall(pattern_with_token, response.text)
-
+    # ค้นหาลิงก์ .mp4 ทั่วทั้งหน้า HTML
+    matches = re.findall(r'https?://[^\s"\'<>]+?\.mp4[^\s"\'<>]*', response.text)
     if matches:
-      url = matches[0].strip('"\'')
-      print(f"✅ พบลิงก์วิดีโอ (แบบมี Token): {url}")
-      return url
-
-    # ค้นหาแบบทั่วไปกรณีที่เป็นลิงก์ไฟล์ .mp4 ตรงๆ
-    pattern_direct = r'https?://[^\s"\'<>]+?\.mp4'
-    matches_direct = re.findall(pattern_direct, response.text)
-
-    if matches_direct:
-      url = matches_direct[0].strip('"\'')
-      print(f"✅ พบลิงก์วิดีโอ (แบบตรง): {url}")
-      return url
+      for url in matches:
+        if "cdn" in url or "storage" in url:
+          clean_url = url.strip('"\'')
+          print(f"✅ พบลิงก์วิดีโอจริง: {clean_url}")
+          return clean_url
+      clean_url = matches[0].strip('"\'')
+      print(f"✅ พบลิงก์วิดีโอ: {clean_url}")
+      return clean_url
 
     print("❌ ไม่พบลิงก์วิดีโอ .mp4 ในหน้าเว็บ")
     return None
