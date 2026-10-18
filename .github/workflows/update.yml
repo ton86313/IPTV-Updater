@@ -20,7 +20,7 @@ jobs:
           python-version: '3.10'
 
       - name: Install dependencies
-        run: pip install requests beautifulsoup4
+        run: pip install cloudscraper
 
       - name: Run updater script
         run: python update_playlist.py
