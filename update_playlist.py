@@ -17,15 +17,21 @@ def fetch_latest_video_url():
     response = requests.get(WEB_PAGE_URL, headers=headers, timeout=15)
     print(f"สถานะการเชื่อมต่อ: {response.status_code}")
 
-    # ค้นหาลิงก์วิดีโอ .mp4 ทุกรูปแบบจาก Bunkr (รวมถึงสื่อ CDN โดเมนต่างๆ)
-    pattern = r'https://[^\s<"]+?\.mp4(?:\?[^\s<"]+)?'
-    matches = re.findall(pattern, response.text)
+    # ค้นหาหลายรูปแบบเพื่อเจาะจงหาลิงก์ไฟล์วิดีโอในหน้า Bunkr
+    patterns = [
+        r'https://[^\s"<>]+?\.mp4[^\s"<>]*',
+        r'src="(https://[^"]+?\.mp4[^"]*?)"',
+        r"src='(https://[^']+?\.mp4[^']*?)'",
+    ]
 
-    if matches:
-      # ดึงลิงก์วิดีโอแรกที่พบ
-      video_url = matches[0]
-      print(f"พบลิงก์วิดีโอใหม่: {video_url}")
-      return video_url
+    for pattern in patterns:
+      matches = re.findall(pattern, response.text)
+      if matches:
+        video_url = matches[0]
+        # ทำความสะอาดลิงก์เผื่อติดเครื่องหมายคำพูดเกินมา
+        video_url = video_url.strip('"\'')
+        print(f"✅ พบลิงก์วิดีโอ: {video_url}")
+        return video_url
 
     print("❌ ไม่พบลิงก์วิดีโอ .mp4 ในหน้าเว็บ")
     return None
