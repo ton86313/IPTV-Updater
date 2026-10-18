@@ -1,4 +1,4 @@
-import re
+from bs4 import BeautifulSoup
 import requests
 
 WEB_PAGE_URL = "https://bunkr.ws/f/WrWkgiCtY4dTc"
@@ -17,18 +17,24 @@ def fetch_latest_video_url():
     response = requests.get(WEB_PAGE_URL, headers=headers, timeout=15)
     print(f"สถานะการเชื่อมต่อ: {response.status_code}")
 
-    # ค้นหาลิงก์ไฟล์ .mp4 ในหน้าเว็บด้วย Regex ทั่วทั้งโค้ด HTML
-    matches = re.findall(r'https://[^\s"<>]+?\.mp4\?[^\s"<>]+', response.text)
-    if matches:
-      url = matches[0].strip('"\'')
-      print(f"✅ พบลิงก์วิดีโอ: {url}")
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    # ค้นหาลิงก์จากแท็ก <source> ที่มี .mp4 อยู่ภายใน (ตรงกับโครงสร้างจริงของ Bunkr)
+    source_tag = soup.find(
+        "source", src=lambda x: x and ".mp4" in x
+    )
+    if source_tag and source_tag.get("src"):
+      url = source_tag["src"]
+      print(f"✅ พบลิงก์วิดีโอจากแท็ก source: {url}")
       return url
 
-    # ค้นหาแบบสำรอง
-    matches_alt = re.findall(r'https://[^\s"<>]+?\.mp4', response.text)
-    if matches_alt:
-      url = matches_alt[0].strip('"\'')
-      print(f"✅ พบลิงก์วิดีโอ (สำรอง): {url}")
+    # ค้นหาสำรองจากแท็ก video
+    video_tag = soup.find(
+        "video", src=lambda x: x and ".mp4" in x
+    )
+    if video_tag and video_tag.get("src"):
+      url = video_tag["src"]
+      print(f"✅ พบลิงก์วิดีโอจากแท็ก video: {url}")
       return url
 
     print("❌ ไม่พบลิงก์วิดีโอ .mp4 ในหน้าเว็บ")
