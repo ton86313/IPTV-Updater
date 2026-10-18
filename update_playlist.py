@@ -9,7 +9,6 @@ M3U_FILENAME = "IPTV-Marco.m3u"
 def fetch_latest_video_url():
   try:
     print(f"กำลังเชื่อมต่อไปยัง: {WEB_PAGE_URL}")
-    # กำหนด timeout ไม่เกิน 10 วินาที เพื่อป้องกันอาการค้าง
     scraper = cloudscraper.create_scraper()
     response = scraper.get(WEB_PAGE_URL, timeout=10)
     print(f"สถานะการเชื่อมต่อ: {response.status_code}")
@@ -18,33 +17,29 @@ def fetch_latest_video_url():
       print(f"❌ ไม่สามารถเข้าถึงหน้าเว็บได้ (Status: {response.status_code})")
       return None
 
-    soup = BeautifulSoup(response.text, "html.parser")
-
-    # 1. ค้นหาจากแท็ก <source>
-    source_tag = soup.find("source", src=lambda x: x and ".mp4" in x)
-    if source_tag and source_tag.get("src"):
-      url = source_tag["src"].strip('"\'')
-      print(f"✅ พบลิงก์จากแท็ก source: {url}")
-      return url
-
-    # 2. ค้นหาจากแท็ก <video>
-    video_tag = soup.find("video", src=lambda x: x and ".mp4" in x)
-    if video_tag and video_tag.get("src"):
-      url = video_tag["src"].strip('"\'')
-      print(f"✅ พบลิงก์จากแท็ก video: {url}")
-      return url
-
-    # 3. ค้นหาด้วย Regex ทั่วไป
-    matches = re.findall(r'https?://[^\s"<>]+?\.mp4\?[^\s"<>]+', response.text)
+    # 1. ค้นหาด้วย Regex ทั่วทั้งหน้าเว็บสำหรับลิงก์ที่ลงท้ายหรือมี .mp4
+    pattern = r'https?://[^\s"\'<>]+?\.mp4[^\s"\'<>]*'
+    matches = re.findall(pattern, response.text)
     if matches:
-      url = matches[0].strip('"\'')
-      print(f"✅ พบลิงก์จาก Regex: {url}")
-      return url
+      for url in matches:
+        clean_url = url.strip('"\'')
+        print(f"✅ พบลิงก์จาก Regex: {clean_url}")
+        return clean_url
+
+    # 2. ค้นหาในทุกๆ แท็กและแอตทริบิวต์ (เช่น src, data-src) ของ HTML
+    soup = BeautifulSoup(response.text, "html.parser")
+    for tag in soup.find_all(True):
+      for attr in tag.attrs:
+        val = tag.get(attr)
+        if isinstance(val, str) and ".mp4" in val:
+          clean_url = val.strip('"\'')
+          print(f"✅ พบลิงก์ใน Attribute [{attr}]: {clean_url}")
+          return clean_url
 
     print("❌ ไม่พบลิงก์วิดีโอในหน้าเว็บ")
     return None
   except Exception as e:
-    print(f"❌ เกิดข้อผิดพลาดหรือหมดเวลาเชื่อมต่อ: {e}")
+    print(f"❌ เกิดข้อผิดพลาด: {e}")
     return None
 
 
