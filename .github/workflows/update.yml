@@ -26,12 +26,14 @@ jobs:
       - name: Run updater script
         run: python update_playlist.py
 
-      - name: Checkout target repository (IPTV-Marco)
+      - name: Checkout target repository (IPTV-Marco with Sparse Checkout)
         uses: actions/checkout@v4
         with:
           repository: 'ton86313/IPTV-Marco'
           token: ${{ secrets.MY_GITHUB_TOKEN }}
           path: 'target_repo'
+          sparse-checkout: |
+            IPTV-Marco.m3u
 
       - name: Copy generated file and push to IPTV-Marco
         run: |
