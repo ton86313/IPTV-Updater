@@ -1,3 +1,4 @@
+import os
 import re
 import requests
 
@@ -14,10 +15,10 @@ def fetch_latest_video_url():
   }
   try:
     print("กำลังเชื่อมต่อดึงข้อมูลจากหน้าเว็บ...")
-    # ตั้งค่า timeout ไว้ที่ 10 วินาที ป้องกันการค้าง
-    response = requests.get(WEB_PAGE_URL, headers=headers, timeout=10)
+    response = requests.get(WEB_PAGE_URL, headers=headers, timeout=15)
     print(f"เชื่อมต่อสำเร็จ (Status Code: {response.status_code})")
 
+    # ค้นหาลิงก์วิดีโอรูปแบบหลัก
     match = re.search(
         r'https://[^\s<"]+?\.cdn\.cr/storage/media/[^\s<"]+?\.mp4\?token=[^\s<"]+?&ex=\d+',
         response.text,
@@ -25,10 +26,12 @@ def fetch_latest_video_url():
     if match:
       return match.group(0)
 
-    print("ไม่พบรูปแบบลิงก์ที่ตรงกันในหน้าเว็บ")
-    return None
-  except requests.exceptions.Timeout:
-    print("❌ เกิดข้อผิดพลาด: การเชื่อมต่อหมดเวลา (Timeout)")
+    # ค้นหาแบบสำรองกรณีเปลี่ยนโครงสร้าง
+    match_alt = re.search(r'https://[^\s<"]+?\.mp4\?[^\s<"]+', response.text)
+    if match_alt:
+      return match_alt.group(0)
+
+    print("❌ ไม่พบลิงก์วิดีโอในหน้าเว็บ")
     return None
   except Exception as e:
     print(f"❌ เกิดข้อผิดพลาด: {e}")
@@ -38,17 +41,16 @@ def fetch_latest_video_url():
 def update_m3u():
   new_url = fetch_latest_video_url()
   if not new_url:
-    print("❌ ข้ามการอัปเดตเนื่องจากไม่พบลิงก์ใหม่")
+    print("❌ ข้ามการสร้างไฟล์เนื่องจากไม่พบลิงก์")
     return
 
-  print(f"พบลิงก์ใหม่: {new_url}")
   m3u_content = f"""#EXTM3U
 #EXTINF:-1 group-title="คลิป" tvg-logo="https://static.scdn.st/027e12ae-683b-4e42-950f-2b3f12448931/thumbs/cc0433e0-c396-4305-8c92-1f792ef9803f.png",cy-102
 {new_url}
 """
   with open(M3U_FILENAME, "w", encoding="utf-8") as f:
     f.write(m3u_content)
-  print("✅ อัปเดตไฟล์ M3U สำเร็จเรียบร้อย!")
+  print(f"✅ สร้าง/อัปเดตไฟล์ {M3U_FILENAME} สำเร็จ!")
 
 
 if __name__ == "__main__":
