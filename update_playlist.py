@@ -1,4 +1,5 @@
 import re
+from bs4 import BeautifulSoup
 import requests
 
 WEB_PAGE_URL = "https://bunkr.ws/f/WrWkgiCtY4dTc"
@@ -17,26 +18,37 @@ def fetch_latest_video_url():
     response = requests.get(WEB_PAGE_URL, headers=headers, timeout=15)
     print(f"สถานะการเชื่อมต่อ: {response.status_code}")
 
-    # ค้นหาหลายรูปแบบเพื่อเจาะจงหาลิงก์ไฟล์วิดีโอในหน้า Bunkr
-    patterns = [
-        r'https://[^\s"<>]+?\.mp4[^\s"<>]*',
-        r'src="(https://[^"]+?\.mp4[^"]*?)"',
-        r"src='(https://[^']+?\.mp4[^']*?)'",
-    ]
+    soup = BeautifulSoup(response.text, "html.parser")
 
-    for pattern in patterns:
-      matches = re.findall(pattern, response.text)
-      if matches:
-        video_url = matches[0]
-        # ทำความสะอาดลิงก์เผื่อติดเครื่องหมายคำพูดเกินมา
-        video_url = video_url.strip('"\'')
-        print(f"✅ พบลิงก์วิดีโอ: {video_url}")
-        return video_url
+    # ค้นหาจากแท็ก <source> ที่มี .mp4 อยู่ด้านใน (ตรงกับโครงสร้างใน DevTools)
+    source_tag = soup.find(
+        "source", src=lambda x: x and ".mp4" in x
+    )
+    if source_tag and source_tag.get("src"):
+      url = source_tag["src"]
+      print(f"✅ พบลิงก์จากแท็ก source: {url}")
+      return url
 
-    print("❌ ไม่พบลิงก์วิดีโอ .mp4 ในหน้าเว็บ")
+    # ค้นหาเผื่อกรณีที่เป็นแท็ก video มี src โดยตรง
+    video_tag = soup.find(
+        "video", src=lambda x: x and ".mp4" in x
+    )
+    if video_tag and video_tag.get("src"):
+      url = video_tag["src"]
+      print(f"✅ พบลิงก์จากแท็ก video: {url}")
+      return url
+
+    # ค้นหาสำรองด้วย Regular Expression ทั่วทั้งหน้า HTML
+    matches = re.findall(r'https://[^\s"<>]+?\.mp4\?[^\s"<>]+', response.text)
+    if matches:
+      url = matches[0].strip('"\'')
+      print(f"✅ พบลิงก์จาก Regex: {url}")
+      return url
+
+    print("❌ ไม่พบลิงก์วิดีโอในหน้าเว็บ")
     return None
   except Exception as e:
-    print(f"❌ เกิดข้อผิดพลาดในการดึงข้อมูล: {e}")
+    print(f"❌ เกิดข้อผิดพลาด: {e}")
     return None
 
 
