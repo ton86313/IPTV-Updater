@@ -1,3 +1,4 @@
+import os
 import re
 from bs4 import BeautifulSoup
 import cloudscraper
@@ -17,7 +18,7 @@ def fetch_latest_video_url():
       print(f"❌ ไม่สามารถเข้าถึงหน้าเว็บได้ (Status: {response.status_code})")
       return None
 
-    # 1. ค้นหาด้วย Regex ทั่วทั้งหน้าเว็บสำหรับลิงก์ .mp4 ที่มี token หรือพารามิเตอร์
+    # 1. ค้นหาด้วย Regex ทั่วทั้งหน้าเว็บสำหรับลิงก์ .mp4 ที่มี token
     pattern = r'https?://[^\s"\'<>]+?\.mp4[^\s"\'<>]*'
     matches = re.findall(pattern, response.text)
     if matches:
@@ -30,7 +31,7 @@ def fetch_latest_video_url():
       print(f"✅ พบลิงก์วิดีโอ (สำรอง): {clean_url}")
       return clean_url
 
-    # 2. ค้นหาในแท็ก HTML ทั่วไป (เช่น src หรือ data-src)
+    # 2. ค้นหาในแท็ก HTML ทั่วไป
     soup = BeautifulSoup(response.text, "html.parser")
     for tag in soup.find_all(True):
       for attr in tag.attrs:
@@ -50,17 +51,34 @@ def fetch_latest_video_url():
 def update_m3u():
   new_url = fetch_latest_video_url()
   if not new_url:
-    print("⚠️ ข้ามการอัปเดตไฟล์ M3U เนื่องจากไม่พบลิงก์")
+    print("⚠️ ข้ามการอัปเดต เนื่องจากไม่พบลิงก์ใหม่")
     return
 
-  # สร้างเนื้อหา M3U โดยใช้ลิงก์เต็มที่ดึงมาได้
-  m3u_content = f"""#EXTM3U
-#EXTINF:-1 group-title="คลิป" tvg-logo="https://static.scdn.st/027e12ae-683b-4e42-950f-2b3f12448931/thumbs/cc0433e0-c396-4305-8c92-1f792ef9803f.png",cy-102
-{new_url}
-"""
+  # ตรวจสอบว่ามีไฟล์เดิมอยู่หรือไม่ ถ้ามีให้อ่านเนื้อหาเดิมเก็บไว้
+  existing_content = ""
+  if os.path.exists(M3U_FILENAME):
+    with open(M3U_FILENAME, "r", encoding="utf-8") as f:
+      existing_content = f.read()
+
+  # ถ้าลิงก์ใหม่นี้มีอยู่แล้วในไฟล์เดิม ไม่ต้องเพิ่มซ้ำ
+  if new_url in existing_content:
+    print("ℹ️ ลิงก์นี้มีอยู่ในรายการอยู่แล้ว ไม่มีการเปลี่ยนแปลง")
+    return
+
+  # สร้างรายการใหม่ที่จะเพิ่มต่อท้าย
+  new_entry = f'#EXTINF:-1 group-title="คลิป" tvg-logo="https://static.scdn.st/027e12ae-683b-4e42-950f-2b3f12448931/thumbs/cc0433e0-c396-4305-8c92-1f792ef9803f.png",cy-102\n{new_url}\n'
+
+  if "#EXTM3U" not in existing_content:
+    # หากยังไม่มีหัวไฟล์ M3U ให้สร้างใหม่
+    final_content = f"#EXTM3U\n{new_entry}"
+  else:
+    # หากมีไฟล์เดิมอยู่แล้ว ให้ต่อท้ายรายการเดิมโดยไม่ลบของเก่า
+    final_content = existing_content.strip() + "\n" + new_entry
+
+  # บันทึกไฟล์กลับลงไป
   with open(M3U_FILENAME, "w", encoding="utf-8") as f:
-    f.write(m3u_content)
-  print(f"✅ อัปเดตไฟล์ {M3U_FILENAME} พร้อมลิงก์เต็มสำเร็จเรียบร้อย!")
+    f.write(final_content)
+  print(f"✅ เพิ่มลิงก์ใหม่ลงในไฟล์ {M3U_FILENAME} สำเร็จ (รายการเก่าอยู่ครบ)!")
 
 
 if __name__ == "__main__":
