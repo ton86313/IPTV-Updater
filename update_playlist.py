@@ -1,4 +1,5 @@
 import re
+from bs4 import BeautifulSoup
 import cloudscraper
 
 WEB_PAGE_URL = "https://bunkr.ws/f/WrWkgiCtY4dTc"
@@ -12,19 +13,32 @@ def fetch_latest_video_url():
     response = scraper.get(WEB_PAGE_URL, timeout=15)
     print(f"สถานะการเชื่อมต่อ: {response.status_code}")
 
-    # ค้นหาลิงก์ .mp4 ทั่วทั้งหน้า HTML
-    matches = re.findall(r'https?://[^\s"\'<>]+?\.mp4[^\s"\'<>]*', response.text)
-    if matches:
-      for url in matches:
-        if "cdn" in url or "storage" in url:
-          clean_url = url.strip('"\'')
-          print(f"✅ พบลิงก์วิดีโอจริง: {clean_url}")
-          return clean_url
-      clean_url = matches[0].strip('"\'')
-      print(f"✅ พบลิงก์วิดีโอ: {clean_url}")
-      return clean_url
+    soup = BeautifulSoup(response.text, "html.parser")
 
-    print("❌ ไม่พบลิงก์วิดีโอ .mp4 ในหน้าเว็บ")
+    # 1. ค้นหาจากแท็ก <source> ที่มี .mp4 (ตามโครงสร้างจริงของ Bunkr)
+    source_tag = soup.find("source", src=lambda x: x and ".mp4" in x)
+    if source_tag and source_tag.get("src"):
+      url = source_tag["src"].strip('"\'')
+      print(f"✅ พบลิงก์จากแท็ก source: {url}")
+      return url
+
+    # 2. ค้นหาจากแท็ก <video>
+    video_tag = soup.find("video", src=lambda x: x and ".mp4" in x)
+    if video_tag and video_tag.get("src"):
+      url = video_tag["src"].strip('"\'')
+      print(f"✅ พบลิงก์จากแท็ก video: {url}")
+      return url
+
+    # 3. ค้นหาในชุดสคริปต์ JavaScript ภายในหน้าเว็บ
+    for script in soup.find_all("script"):
+      if script.string:
+        match = re.search(r'https?://[^\s"<>]+?\.mp4\?[^\s"<>]+', script.string)
+        if match:
+          url = match.group(0).strip('"\'')
+          print(f"✅ พบลิงก์ใน Script: {url}")
+          return url
+
+    print("❌ ไม่พบลิงก์วิดีโอในหน้าเว็บ")
     return None
   except Exception as e:
     print(f"❌ เกิดข้อผิดพลาด: {e}")
