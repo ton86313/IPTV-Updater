@@ -1,4 +1,4 @@
-from bs4 import BeautifulSoup
+import re
 import requests
 
 WEB_PAGE_URL = "https://bunkr.ws/f/WrWkgiCtY4dTc"
@@ -10,31 +10,30 @@ def fetch_latest_video_url():
       "User-Agent": (
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
           " (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-      )
+      ),
+      "Referer": "https://bunkr.ws/",
   }
   try:
     print(f"กำลังดึงข้อมูลจาก: {WEB_PAGE_URL}")
     response = requests.get(WEB_PAGE_URL, headers=headers, timeout=15)
     print(f"สถานะการเชื่อมต่อ: {response.status_code}")
 
-    soup = BeautifulSoup(response.text, "html.parser")
+    # ค้นหาลิงก์ .mp4 ที่มีพารามิเตอร์ token หรือ query string ต่อท้ายทั่วทั้งหน้าเว็บ
+    pattern_with_token = r'https?://[^\s"\'<>]+?\.mp4\?[^\s"\'<>]+'
+    matches = re.findall(pattern_with_token, response.text)
 
-    # ค้นหาลิงก์จากแท็ก <source> ที่มี .mp4 อยู่ภายใน (ตรงกับโครงสร้างจริงของ Bunkr)
-    source_tag = soup.find(
-        "source", src=lambda x: x and ".mp4" in x
-    )
-    if source_tag and source_tag.get("src"):
-      url = source_tag["src"]
-      print(f"✅ พบลิงก์วิดีโอจากแท็ก source: {url}")
+    if matches:
+      url = matches[0].strip('"\'')
+      print(f"✅ พบลิงก์วิดีโอ (แบบมี Token): {url}")
       return url
 
-    # ค้นหาสำรองจากแท็ก video
-    video_tag = soup.find(
-        "video", src=lambda x: x and ".mp4" in x
-    )
-    if video_tag and video_tag.get("src"):
-      url = video_tag["src"]
-      print(f"✅ พบลิงก์วิดีโอจากแท็ก video: {url}")
+    # ค้นหาแบบทั่วไปกรณีที่เป็นลิงก์ไฟล์ .mp4 ตรงๆ
+    pattern_direct = r'https?://[^\s"\'<>]+?\.mp4'
+    matches_direct = re.findall(pattern_direct, response.text)
+
+    if matches_direct:
+      url = matches_direct[0].strip('"\'')
+      print(f"✅ พบลิงก์วิดีโอ (แบบตรง): {url}")
       return url
 
     print("❌ ไม่พบลิงก์วิดีโอ .mp4 ในหน้าเว็บ")
