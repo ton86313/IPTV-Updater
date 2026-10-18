@@ -8,6 +8,7 @@ on:
 jobs:
   update-playlist:
     runs-on: ubuntu-latest
+    timeout-minutes: 1  # ป้องกันไม่ให้ค้างเกิน 1 นาที
     permissions:
       contents: write
     steps:
@@ -33,12 +34,11 @@ jobs:
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
           
-          # ตรวจสอบว่ามีไฟล์ M3U ถูกสร้างขึ้นมาจริงหรือไม่ก่อน Commit
           if [ -f IPTV-Marco.m3u ]; then
             git add IPTV-Marco.m3u
             git commit -m "Auto-update IPTV-Marco.m3u link" || echo "No changes to commit"
             git push origin HEAD
           else
-            echo "⚠️ ไม่พบไฟล์ IPTV-Marco.m3u ข้ามการ Push เพื่อป้องกันข้อผิดพลาด"
+            echo "⚠️ ไม่พบไฟล์ IPTV-Marco.m3u ข้ามการ Push"
             exit 0
           fi
